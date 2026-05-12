@@ -1,190 +1,343 @@
-# 📋 PLAN DE IMPLEMENTACIÓN DETALLADO: GAME SHOP
+# 📋 PLAN DE IMPLEMENTACIÓN DETALLADO: GAME SHOP 
 
-Este documento establece la hoja de ruta técnica, arquitectónica y operativa para el desarrollo de **GameShop**. No incluye código fuente; está diseñado para ser validado paso a paso antes de iniciar la implementación modular.
+Este documento consolida el plan original con los elementos solicitados: **estructura de carpetas completa**, **dependencias organizadas** y **énfasis en Provider**. No incluye código de aplicación; está diseñado para ser revisado, aprobado y ejecutado módulo por módulo.
 
 ---
 
 ## 1. 🔧 CONFIGURACIÓN DEL PROYECTO
 
 ### 1.1. Firebase Console
-1. **Crear Proyecto**: Acceder a Firebase Console → `Agregar proyecto` → Nombre: `GameShop`.
-2. **Google Analytics**: Desmarcar explícitamente `Habilitar Google Analytics para este proyecto` durante la creación.
-3. **Firestore Database**:
-   - Navegar a `Firestore Database` → `Crear base de datos`.
-   - Seleccionar `Modo de producción` o `Estándar` según disponibilidad regional.
-   - Elegir ubicación del servidor (`eur3` o `us-central` recomendadas para latencia global).
-   - Dejar reglas iniciales en `Bloquear toda lectura/escritura` (se actualizarán en la Fase 1).
-4. **Authentication**:
-   - Ir a `Authentication` → `Get started` → Pestaña `Sign-in method`.
-   - Habilitar `Correo electrónico/Contraseña`.
-   - Deshabilitar `Crear cuentas desde la consola` si no es requerido.
-   - Configurar `Plantillas de correo electrónico` para recuperación de contraseña (idioma ES/EN).
+1. **Crear Proyecto**: `Agregar proyecto` → Nombre: `GameShop`.
+2. **Google Analytics**: Desmarcar explícitamente `Habilitar Google Analytics para este proyecto`.
+3. **Firestore Database**: `Crear base de datos` → Modo de producción/estándar → Ubicación regional recomendada (`eur3` o `us-central`) → Reglas iniciales: `Deny all`.
+4. **Authentication**: `Sign-in method` → Habilitar `Correo electrónico/Contraseña` → Configurar plantillas de email (ES/EN) para recuperación.
 
 ### 1.2. Conexión con Flutter
 1. Instalar Firebase CLI: `npm install -g firebase-tools`.
-2. Iniciar sesión: `firebase login`.
-3. Ejecutar `flutterfire configure` en la raíz del proyecto Flutter para generar automáticamente los archivos de configuración nativos y el archivo `firebase_options.dart`.
-4. Inicializar en `main()`: `await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);`
+2. Ejecutar `flutterfire configure` en la raíz del proyecto para generar `firebase_options.dart` y archivos nativos.
+3. Inicializar en `main()`: `await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);`
 
 ---
 
-## 2. 🏗️ ARQUITECTURA DEL PROYECTO
+## 2. 🏗️ ARQUITECTURA DEL PROYECTO (ESTRUCTURA COMPLETA)
 
-### 2.1. Patrón de Diseño
-Se utilizará una **Arquitectura Limpia simplificada con MVVM**, priorizando la separación de responsabilidades y la testabilidad:
-- **Presentation**: Widgets, pantallas, gestión de estado (Provider), localización.
-- **Domain**: Casos de uso, entidades puras (modelos sin lógica de Firebase).
-- **Data**: Repositorios, fuentes de datos (Firestore, Cache local, Servicios).
+Se adopta **MVVM ligero con separación por features**, priorizando mantenibilidad, testabilidad y escalabilidad.
 
-### 2.2. Estructura de Carpetas
 ```
-lib/
-├── core/                 # Utilidades, constantes, temas, enrutadores, helpers
-├── features/             # Módulos por dominio
-│   ├── auth/             # Login, Registro, Recuperación
-│   ├── catalog/          # Home, Búsqueda, Filtros, Detalle
-│   ├── cart/             # Carrito, Checkout
-│   ├── orders/           # Historial, Detalle pedido
-│   └── profile/          # Configuración, Favoritos, Ajustes
-├── shared/               # Widgets reutilizables, componentes UI, assets
-├── providers/            # Global ChangeNotifiers (Auth, Cart, Theme, Locale)
-├── data/
-│   ├── models/           # Clases Dart para Firestore
-│   ├── repositories/     # Abstracciones de acceso a datos
-│   └── datasources/      # Firebase implementation, SharedPrefs
-└── main.dart             # Entry point, MultiProvider setup, Router init
+game_shop/
+├── android/                          # Configuración nativa Android
+├── ios/                              # Configuración nativa iOS
+├── lib/
+│   ├── main.dart                     # Entry point, inicialización Firebase, MultiProvider, MaterialApp.router
+│   ├── core/
+│   │   ├── constants/
+│   │   │   ├── app_constants.dart    # Keys, timeouts, límites de input, valores por defecto
+│   │   │   ├── app_routes.dart       # Constantes de rutas nombradas
+│   │   │   └── app_colors.dart       # Paleta oficial (primary, secondary, accent, surface, error, logout)
+│   │   ├── errors/
+│   │   │   ├── exceptions.dart       # AuthException, FirestoreException, NetworkException, ValidationException
+│   │   │   └── failures.dart         # Clases de error estructuradas para manejo centralizado
+│   │   ├── network/
+│   │   │   └── connectivity_service.dart # Listener de estado online/offline
+│   │   ├── router/
+│   │   │   ├── app_router.dart       # Configuración GoRouter + AuthGuard + RouteObserver
+│   │   │   └── route_guards.dart     # Middleware de autenticación y validación de rol
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart        # ThemeData light/dark, elevación, bordes, spacing
+│   │   │   └── typography.dart       # Escala tipográfica (Poppins/Inter), pesos, interlineado
+│   │   └── utils/
+│   │       ├── formatters.dart       # Moneda, fechas, máscaras
+│   │       ├── validators.dart       # Regex email, longitud password, rangos numéricos
+│   │       └── extensions.dart       # Helpers para String, DateTime, List
+│   ├── data/
+│   │   ├── models/
+│   │   │   ├── user_model.dart
+│   │   │   ├── product_model.dart
+│   │   │   ├── category_model.dart
+│   │   │   ├── supplier_model.dart
+│   │   │   ├── cart_item_model.dart
+│   │   │   ├── order_model.dart
+│   │   │   └── order_detail_model.dart
+│   │   ├── datasources/
+│   │   │   ├── remote/
+│   │   │   │   ├── auth_remote_ds.dart
+│   │   │   │   ├── product_remote_ds.dart
+│   │   │   │   ├── order_remote_ds.dart
+│   │   │   │   └── user_remote_ds.dart
+│   │   │   └── local/
+│   │   │       ├── cart_local_ds.dart      # SharedPrefs (fallback offline)
+│   │   │       ├── theme_local_ds.dart     # Preferencia modo oscuro
+│   │   │       └── locale_local_ds.dart    # Idioma guardado
+│   │   └── repositories/
+│   │       ├── auth_repo_impl.dart
+│   │       ├── product_repo_impl.dart
+│   │       ├── cart_repo_impl.dart
+│   │       ├── order_repo_impl.dart
+│   │       └── user_repo_impl.dart
+│   ├── presentation/
+│   │   ├── providers/                # ChangeNotifiers (State Management Central)
+│   │   │   ├── auth_provider.dart
+│   │   │   ├── catalog_provider.dart
+│   │   │   ├── cart_provider.dart
+│   │   │   ├── order_provider.dart
+│   │   │   ├── theme_provider.dart
+│   │   │   └── locale_provider.dart
+│   │   ├── screens/
+│   │   │   ├── auth/
+│   │   │   │   ├── login_screen.dart
+│   │   │   │   └── register_screen.dart
+│   │   │   ├── home/
+│   │   │   │   ├── catalog_screen.dart
+│   │   │   │   └── product_detail_screen.dart
+│   │   │   ├── search/
+│   │   │   │   └── search_screen.dart
+│   │   │   ├── cart/
+│   │   │   │   └── cart_screen.dart
+│   │   │   ├── favorites/
+│   │   │   │   └── favorites_screen.dart
+│   │   │   ├── profile/
+│   │   │   │   ├── profile_screen.dart
+│   │   │   │   ├── settings_screen.dart
+│   │   │   │   └── order_history_screen.dart
+│   │   │   └── splash_screen.dart
+│   │   └── widgets/
+│   │       ├── buttons/
+│   │       │   ├── primary_button.dart
+│   │       │   └── outline_button.dart
+│   │       ├── inputs/
+│   │       │   └── app_text_field.dart
+│   │       ├── cards/
+│   │       │   └── product_card.dart
+│   │       ├── dialogs/
+│   │       │   └── confirm_dialog.dart
+│   │       ├── loaders/
+│   │       │   ├── shimmer_grid.dart
+│   │       │   └── circular_progress.dart
+│   │       └── empty_state.dart
+│   └── l10n/                         # Internacionalización
+│       ├── app_en.arb
+│       └── app_es.arb
+├── assets/
+│   ├── images/                       # Logo G, ilustraciones, banners, estados vacíos
+│   ├── svgs/                         # Iconos SVG, badges, decoraciones
+│   └── fonts/                        # Poppins-Regular, Medium, SemiBold, Bold
+├── test/
+│   ├── unit/                         # Modelos, validadores, lógica de providers
+│   ├── widget/                       # Componentes UI, formularios, guards
+│   └── integration/                  # Flujos completos con Firebase Emulator
+├── firebase.json                     # Configuración emulators, hosting, rules
+├── firestore.rules                   # Reglas de seguridad Firestore
+├── .env                              # Variables de entorno (NO commitear)
+├── .env.example                      # Plantilla pública
+├── analysis_options.yaml             # Linter oficial + dart recommended
+├── pubspec.yaml                      # Dependencias y configuración de assets
+└── README.md                         # Guía de setup, arquitectura, scripts
 ```
 
 ---
 
-## 3. 📦 MODELOS DE DATOS
+## 3. 📦 DEPENDENCIAS (`pubspec.yaml`)
 
-### 3.1. Entidades (Mapping Relacional → NoSQL)
-- **User**: `id` (String), `nombre`, `email`, `telefono`, `fechaRegistro` (Timestamp), `tipoUsuario` (Enum: cliente, empleado).
-- **Product**: `id`, `titulo`, `descripcion`, `precio` (double), `stock` (int), `plataforma`, `idCategoria`, `idProveedor`, `imagenUrl`, `rating` (double), `disponible` (bool).
-- **Category**: `id`, `nombre`, `descripcion`.
-- **Order**: `id`, `idUsuario`, `fecha`, `total`, `estado` (Enum), `metodoPago`.
-- **OrderDetail**: `id`, `idProducto`, `cantidad`, `precioUnitario` (Subcolección bajo `orders/{id}/details`).
-- **CartItem**: `id`, `idProducto`, `cantidad`, `fechaAgregado`.
-- **FavoriteItem**: `idProducto`, `fechaAgregado` (Subcolección `users/{id}/favorites`).
-- **Supplier**: `id`, `nombre`, `contacto`, `pais`.
+Organizadas por categoría para facilitar mantenimiento y auditoría. Versiones con `^` para parches seguros.
 
-### 3.2. Serialización y Validación
-- Implementar `fromJson` y `toJson` en cada modelo.
-- Validaciones de entrada: Regex para email, longitud mínima para nombre/contraseña, rangos numéricos para precio/stock, checks de enums.
-- Uso de `factory` constructors para garantizar inmutabilidad donde sea posible.
-- Los IDs se generarán con `uuid` antes de persistencia, o delegados a Firestore si se requiere orden estricto (se priorizará UUID para independencia del cliente).
+```yaml
+name: game_shop
+description: Tienda digital de videojuegos multiplataforma (iOS/Android).
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.24.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # 🔥 Firebase Core & Services
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  firebase_storage: ^12.3.2
+
+  # 🧠 State Management (Provider)
+  provider: ^6.1.2
+
+  # 🧭 Routing & Guards
+  go_router: ^14.2.3
+
+  # 📱 UI/UX Components
+  cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.10
+  shimmer: ^3.0.0
+  carousel_slider: ^5.0.0
+  flutter_typeahead: ^5.2.0
+  another_flushbar: ^1.12.30
+  google_fonts: ^6.2.1
+  intl: ^0.19.0
+  fluttertoast: ^8.2.8
+
+  # 💾 Local Storage & Connectivity
+  shared_preferences: ^2.3.2
+  connectivity_plus: ^6.0.5
+
+  # 🛠 Utilities
+  uuid: ^4.4.2
+  equatable: ^2.0.5
+  flutter_dotenv: ^5.1.0
+  collection: ^1.18.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf (weight: 500)
+        - asset: assets/fonts/Poppins-SemiBold.ttf (weight: 600)
+        - asset: assets/fonts/Poppins-Bold.ttf (weight: 700)
+  assets:
+    - assets/images/
+    - assets/svgs/
+    - .env
+```
 
 ---
 
-## 4. 🔌 SERVICIOS Y REPOSITORIOS
+## 4. 📦 MODELOS DE DATOS
 
-### 4.1. Patrón Repositorio
-- Definir interfaces abstractas (`IAuthRepository`, `IProductRepository`, etc.) en `data/repositories/`.
-- Implementaciones en `data/datasources/` apuntando a `cloud_firestore` y `firebase_auth`.
-- Esto permite mockear Firebase durante testing y facilita migración futura si fuera necesario.
+- **User**: `id_user`, `nombre`, `email`, `telefono`, `fecha_registro`, `tipo_usuario` (enum: `cliente`, `empleado`).
+- **Product**: `id_product`, `titulo`, `descripcion`, `precio`, `stock`, `plataforma`, `id_categoria`, `id_proveedor`, `imagen_url`, `rating`, `disponible` (bool).
+- **Category**: `id_category`, `nombre`, `descripcion`.
+- **Order**: `id_order`, `id_user`, `fecha`, `total`, `estado` (enum: `pendiente`, `procesando`, `completado`, `cancelado`), `metodo_pago`.
+- **OrderDetail**: `id_order`, `id_product`, `cantidad`, `precio_unitario` (subcolección).
+- **Cart**: `id_user`, `id_product`, `cantidad`, `fecha_agregado` (colección o subcolección).
+- **Favorites**: `id_user`, `id_product`, `fecha_agregado` (subcolección de `users`).
+- **Supplier**: `id_supplier`, `nombre`, `contacto`, `pais`.
 
-### 4.2. Servicios por Dominio
+Cada modelo incluirá:
+- `fromJson` / `toJson` para serialización segura.
+- Validaciones en constructor/factory.
+- Inmutabilidad donde aplique (`final` fields).
+- Uso de `enum` para estados y tipos de usuario.
+
+---
+
+## 5. 🔌 SERVICIOS Y REPOSITORIOS
+
 | Servicio | Responsabilidad |
-|--------------------------|
-| **AuthService** | `signIn`, `signUp`, `signOut`, `resetPassword`, `persistSession`, `fetchUserType`, `streamAuthState` |
-| **ProductService** | `fetchProductsPaginated`, `searchProducts`, `getProductById`, `getByCategory/Platform`, `watchAvailable` |
-| **CartService** | `addToCart`, `updateQuantity`, `removeFromCart`, `clearCart`, `calculateTotal`, `moveToFavorites` |
-| **OrderService** | `createOrder` (transacción), `getOrderHistory`, `getOrderDetails`, `watchOrderStatus` |
-| **UserService** | `updateProfile`, `manageFavorites`, `fetchPreferences`, `manageNotifications` |
+|----------|----------------|
+| **AuthService** | `signIn`, `signUp`, `signOut`, `resetPassword`, persistencia de sesión, escucha de `authStateChanges`. |
+| **ProductService** | CRUD productos, búsqueda con debounce, filtros por categoría/plataforma/precio, paginación. |
+| **CartService** | Agregar/eliminar/actualizar cantidad, calcular totales, mover a favoritos, sincronización local/remota. |
+| **OrderService** | Crear pedido (transacción Firestore), historial por usuario, detalles por ID, watch de estado. |
+| **UserService** | Perfil, favoritos, preferencias, toggles de notificaciones/idioma/tema. |
+
+Patrón: Interfaces abstractas en `data/repositories/`, implementaciones en `data/datasources/`. Esto permite mockeo limpio y desacoplamiento de Firebase.
 
 ---
 
-## 5. 📊 GESTIÓN DE ESTADO (ÉNFASIS EN PROVIDER)
+## 6. 📊 GESTIÓN DE ESTADO (PROVIDER - ÉNFASIS TÉCNICO)
 
-### 5.1. Configuración Global
-- `main.dart` envolverá la app en `MultiProvider` con `ChangeNotifierProvider.value` o `.create` según ciclo de vida.
+### 6.1. Configuración Global
+- `MultiProvider` en `main.dart` con `ChangeNotifierProvider.create`.
 - Providers globales: `AuthProvider`, `CartProvider`, `ThemeProvider`, `LocaleProvider`.
-- Providers locales/específicos: `CatalogProvider` (por pantalla), `OrderDetailProvider` (por ruta).
+- Providers locales: `CatalogProvider`, `SearchProvider`, `OrderDetailProvider`.
 
-### 5.2. Mejores Prácticas con Provider
-- **Evitar rebuilds innecesarios**: Uso de `context.select((p) => p.valorEspecífico)` o `Consumer<Provider>(builder: (ctx, val, child) {})` para aislar reconstrucciones.
-- **Estado computado**: Propiedades `get` dentro de los `ChangeNotifier` para totales, filtros aplicados, validaciones de formularios.
-- **Separación UI/Logic**: Los `ChangeNotifier` nunca manipulan widgets. Emiten eventos o exponen streams/estado. La UI solo consume y despacha métodos (`notifyListeners()` solo al final de transacciones atómicas).
-- **Persistencia**: `CartProvider` y `ThemeProvider` se sincronizarán con `shared_preferences` en `initState` y `dispose` para recuperación offline.
+### 6.2. Buenas Prácticas Obligatorias
+- ✅ `context.select<Provider, T>((p) => p.valor)` para reconstrucciones quirúrgicas.
+- ✅ `Provider.of<Provider>(context, listen: false)` en callbacks (`onPressed`, `onSubmit`).
+- ✅ Estados computados (`get total => ...`, `get isValid => ...`) dentro del `ChangeNotifier`.
+- ❌ Nunca `context.watch` en builders de listas o grids.
+- 🔄 `notifyListeners()` solo al final de operaciones atómicas o en `finally`.
+- 💾 Sincronización con `shared_preferences` en `init`/`dispose` para preferencias y carrito offline.
+
+### 6.3. Patrón de `ChangeNotifier`
+```dart
+// Estructura conceptual (NO CÓDIGO DE IMPLEMENTACIÓN)
+class XProvider extends ChangeNotifier {
+  final XRepository _repo;
+  List<T> _data = [];
+  bool _isLoading = false;
+  String? _error;
+
+  List<T> get data => List.unmodifiable(_data);
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  Future<void> loadData() async {
+    _isLoading = true; notifyListeners();
+    try { /* fetch */ } catch (e) { _error = e.toString(); } finally { _isLoading = false; notifyListeners(); }
+  }
+}
+```
 
 ---
 
-## 6. 📱 PANTALLAS Y FLUJO DE NAVEGACIÓN
+## 7. 📱 PANTALLAS Y FLUJO DE NAVEGACIÓN
 
-### 6.1. Diagrama de Navegación
+### 7.1. Diagrama de Flujo
 ```
 Splash/Init → AuthGuard
-   ├── Autenticado → BottomNavigation (4/5 tabs)
-   │   ├── 🏠 Inicio/Catálogo
+   ├── Autenticado → BottomNavigation (5 tabs)
+   │   ├── 🏠 Catálogo
    │   ├── 🔍 Búsqueda
-   │   ├── 🛒 Carrito
+   │   ├── 🛒 Carrito (badge)
    │   ├── ❤️ Favoritos
    │   └── 👤 Perfil
    └── No Autenticado → /login → /register / /forgot-password
 ```
-- **Auth Guard Middleware**: Intercepta rutas protegidas. Si `!AuthState.isAuthenticated`, redirige a `/login`. Si `AuthState.user.tipoUsuario == admin` (caso raro por seguridad), bloquea acceso a UI cliente.
-- **Rutas Nombradas**: Usar `MaterialApp.router` con `GoRouter` o `flutter_modular` (se recomienda `go_router` para guards declarativos), pero si se prefiere vanilla, `Navigator.pushNamed` con `onGenerateRoute`.
-
-### 6.2. Estructura de Pantallas Principales
-- **Login/Registro**: Formulario validado en tiempo real, toggle entre modos, logo G centrado, tagline, botones primario/outline.
-- **Home**: `SliverAppBar` con buscador → `GridView.builder` con `ProductCard`. Filtros desplegables (categoría, plataforma).
-- **Detalle Producto**: Hero animation en imagen → Info → Rating → Botones CTA → `CarouselSlider` para relacionados.
-- **Carrito**: `ListView.separated` → `CartTile` → Footer fijo con total y CTA → Estado vacío con ilustración.
-- **Búsqueda**: `TypeAheadField` para sugerencias → Resultados en tiempo real con debounce → Filtros avanzados (rango precio, multi-select plataforma).
-- **Perfil/Favoritos/Historial**: Layout limpio con `ListTile` para ajustes, toggle switches estilizados, grid de favoritos, timeline de pedidos.
+- **AuthGuard**: Intercepta rutas protegidas. Si `!AuthState.isAuthenticated`, redirige a `/login`. Si `tipo_usuario == 'admin'`, bloquea acceso a UI cliente y muestra `Acceso Restringido`.
+- **Rutas Nombradas**: `go_router` con `redirect` callback para guards declarativos y `refreshListenable` atado a `AuthProvider`.
 
 ---
 
-## 7. 🎨 COMPONENTES UI REUTILIZABLES
+## 8. 🎨 UI COMPONENTS REUTILIZABLES
 
-Lista de widgets a estandarizar en `lib/shared/widgets/`:
-1. `PrimaryButton` / `OutlineButton` (con estados loading/disabled, radio 12-16px)
-2. `AppTextField` (con validador, prefix/suffix, error message integrado)
-3. `ProductCard` (imagen, título, precio, rating, botón fav flotante, sombra suave)
-4. `RatingBar` (estrellas interactivas/estáticas, soporta .5)
-5. `EmptyStateWidget` (ilustración, título, CTA opcional)
-6. `LoadingSkeleton` / `ShimmerLoader` (para grid/list durante carga)
-7. `CustomBadge` (para cantidad en carrito)
-8. `FilterChips` / `DropdownSelector` (categoría, plataforma, rango de precio)
-9. `ToastNotification` (flushbar/toast reutilizable para éxito/error)
-10. `SectionTitle` (tipografía consistente, espaciado 8px grid)
-11. `ToggleSetting` (notificaciones, modo oscuro, etc.)
+Widgets a estandarizar en `lib/presentation/widgets/`:
+1. `PrimaryButton` / `OutlineButton` (estados: idle, loading, disabled; radio 12-16px)
+2. `AppTextField` (validador integrado, iconos prefix/suffix, mensajes de error)
+3. `ProductCard` (imagen, título, precio, rating, botón corazón, sombra sutil)
+4. `RatingBar` (estrellas .5, estático/interactivo)
+5. `EmptyStateWidget` (ilustración, texto, CTA opcional)
+6. `ShimmerLoader` / `CircularProgress` (skeletons para grid/list)
+7. `CustomBadge` (contador carrito)
+8. `FilterChips` / `DropdownSelector` (categoría, plataforma, precio)
+9. `FlushbarNotification` (éxito, error, advertencia)
+10. `ToggleSetting` (notificaciones, dark mode, idioma)
 
 ---
 
-## 8. 🔐 REGLAS DE SEGURIDAD FIRESTORE
+## 9. 🔐 REGLAS DE SEGURIDAD FIRESTORE
 
-### 8.1. Principios
-- **Deny by default**. Acceso explícito por colección/documento.
-- Validar `request.auth != null` para operaciones protegidas.
-- Validar `request.resource.data` en escrituras.
-- Uso de `allow` con condiciones compuestas para `tipo_usuario`.
-
-### 8.2. Estructura de Reglas (Conceptual)
 ```
 match /databases/{database}/documents {
-  // Configuración pública
   match /categories/{id} { allow read: if true; }
   match /suppliers/{id} { allow read: if true; }
   match /products/{id} { allow read: if resource.data.disponible == true; }
 
-  // Autenticación y Usuarios
   match /users/{userId} {
     allow read: if request.auth != null && request.auth.uid == userId;
     allow create: if request.auth != null && request.resource.data.id_user == request.auth.uid;
     allow update: if request.auth != null && request.auth.uid == userId;
   }
 
-  // Carrito y Favoritos (subcolecciones o raíz)
-  match /users/{userId}/cart/{docId} {
-    allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-  }
-  match /users/{userId}/favorites/{docId} {
+  match /users/{userId}/cart/{docId},
+        /users/{userId}/favorites/{docId} {
     allow read, write, delete: if request.auth != null && request.auth.uid == userId;
   }
 
-  // Pedidos (transaccional)
   match /orders/{orderId} {
     allow read: if resource.data.id_user == request.auth.uid || request.auth.token.tipo_usuario == 'empleado';
     allow create: if request.auth != null && request.resource.data.id_user == request.auth.uid;
@@ -192,76 +345,88 @@ match /databases/{database}/documents {
   }
 }
 ```
-- **Notas de Seguridad**: `tipo_usuario` se validará en Cloud Functions si se escalan pagos. En Firestore Rules, se usa `request.auth.token.tipo_usuario` (custom claims) para máxima seguridad, o se lee del documento `users` con `get()`.
+- Validación de `request.auth.token.tipo_usuario` vía Custom Claims.
+- Reglas actualizadas vía `firebase deploy --only firestore:rules`.
 
 ---
 
-## 9. 📅 PLAN DE DESARROLLO POR FASES
+## 10. 📅 PLAN DE DESARROLLO POR FASES
 
-| Fase | Duración | Entregables |
-|------|----------|-------------|
-| **Fase 1: Configuración y Autenticación** | 1-2 sem | Proyecto Firebase, conexión Flutter, Auth (Login/Registro/Recuperación), persistencia de sesión, base routing, tema global, Provider inicial (AuthState) |
-| **Fase 2: Catálogo y Búsqueda** | 1 sem | ProductModel, ProductService, GridView, filtros, detalle producto, caché offline básico, búsqueda en tiempo real con debounce |
-| **Fase 3: Carrito y Checkout** | 1-2 sem | CartService, Provider global de carrito, UI carrito, cálculo automático, creación de pedidos (simulación de pago), historial de órdenes |
-| **Fase 4: Perfil, Favoritos y Ajustes** | 1 sem | Subcolecciones favoritos, perfil editable, toggles (dark mode, notificaciones), i18n ES/EN, settings UI, cierre de sesión seguro |
-| **Fase 5: Testing y Optimización** | 1 sem | Tests unitarios/widget, emuladores Firebase, refactors de performance, pulido UI/UX, preparación build, documentación técnica |
-
----
-
-## 10. 🧪 ESTRATEGIA DE TESTING
-
-- **Unitarios**: Modelos (`fromJson/toJson`), servicios (mockeando `FirebaseFirestore`), validaciones de formularios, lógica de cálculo de carrito/pedidos.
-- **Widget Tests**: `ProductCard`, `PrimaryButton`, formularios de login/registro, estados vacíos, navegación entre pantallas mockeadas.
-- **Integration Tests**: Flujo completo `Registro → Login → Buscar → Agregar al carrito → Checkout → Ver historial`. Uso de `Firebase Emulator Suite` para pruebas locales sin costo ni datos reales.
-- **Mock Strategy**: Interfaces de repositorios inyectadas via `Provider` para testing. Uso de `mocktail` o `mockito`.
+| Fase | Duración | Entregables Clave |
+|------|----------|-------------------|
+| **Fase 1** | 1-2 sem | Configuración Firebase, Auth (login/registro/recuperación), persistencia sesión, `MultiProvider` base, routing guards, tema global |
+| **Fase 2** | 1 sem | Modelos productos, `ProductService`, grid catálogo, filtros, detalle producto, búsqueda con debounce, caché básico |
+| **Fase 3** | 1-2 sem | `CartService`, provider carrito, UI carrito, cálculo automático, creación pedido (simulado), historial órdenes |
+| **Fase 4** | 1 sem | Favoritos (subcolección), perfil editable, toggles configuración, i18n ES/EN, cierre de sesión seguro |
+| **Fase 5** | 1 sem | Tests unit/widget/integration, emuladores, optimización UI/UX, preparación builds, documentación final |
 
 ---
 
-## 11. 🚀 PREPARACIÓN PARA DEPLOY
+## 11. 🧪 ESTRATEGIA DE TESTING
 
-### 11.1. Android (Play Store)
-- Configurar `android/app/build.gradle` (`minSdkVersion 23`, `compileSdkVersion 34+`).
-- Generar `keystore.jks` y configurar `key.properties`.
-- Generar App Bundle (`flutter build appbundle`).
-- Configurar Play Console: app signing, store listing, screenshots, cumplimiento de políticas.
-
-### 11.2. iOS (App Store)
-- Configurar `ios/Runner/Info.plist` (permisos, localizaciones, `ITSAppUsesNonExemptEncryption`).
-- Generar certificados y provisioning profiles en Apple Developer.
-- Archivar desde Xcode o CLI (`flutter build ipa`).
-- Configurar App Store Connect: metadata, testflight, review guidelines.
-
-### 11.3. Entorno y Variables
-- Uso de `flutter_dotenv` para separar `API_URL`, `FLAVOR`, `DEBUG_MODE`.
-- Archivos `env/development.env`, `env/production.env`.
-- Scripts de build condicional para empaquetar variables correctas por entorno.
+- **Unitarios**: Modelos (`fromJson/toJson`), validadores, lógica de carrito/pedidos, providers (repos mockeados con `mocktail`).
+- **Widget**: `ProductCard`, `AppTextField`, formularios auth, estados vacíos, navegación mockeada.
+- **Integration**: Flujo completo `Registro → Login → Búsqueda → Carrito → Checkout → Historial`. Ejecutado en `Firebase Emulator Suite` local.
+- **Performance**: `flutter run --profile`, DevTools Memory/Network, detección de rebuilds innecesarios y fugas de escucha.
 
 ---
 
-## 12. ⚡ CONSIDERACIONES DE PERFORMANCE
+## 12. 🚀 PREPARACIÓN PARA DEPLOY
+
+### 12.1. Android
+- `minSdkVersion 23`, `targetSdkVersion 34`.
+- `keystore.jks` + `key.properties` en `android/app/build.gradle`.
+- `flutter build appbundle` → Upload a Play Console (Internal → Production).
+
+### 12.2. iOS
+- `Info.plist`: permisos, `CFBundleLocalizations`, `ITSAppUsesNonExemptEncryption`.
+- Certificados + Provisioning Profiles.
+- `flutter build ipa` → Xcode Organizer / `altool` → App Store Connect.
+
+### 12.3. Entorno
+- `flutter_dotenv` con `.env` (dev/prod).
+- Scripts: `flutter build appbundle --dart-define-from-file=env/prod.json`.
+
+---
+
+## 13. ⚡ CONSIDERACIONES DE PERFORMANCE
 
 | Área | Estrategia |
 |------|------------|
-| **Paginación** | Firestore `limit(20)` + `startAfterDocument()`. Infinite scroll con `ScrollController`. |
-| **Carga Lazy** | `ListView.builder` / `GridView.builder`. Imágenes con `CachedNetworkImage` + `placeholder` y `errorWidget`. |
-| **Caché Offline** | Firestore cache nativo activado por defecto. `shared_preferences` para preferencias UI. `Provider` restaura estado desde cache local al inicio. |
-| **Optimización Queries** | Índices compuestos para `(categoria, plataforma)`, `(disponible, precio)`. Evitar `get()` en reglas si es posible. Usar `snapshots()` solo en colecciones activas. |
-| **State Rebuilds** | `select()` en Provider, `Provider.of(context, listen: false)` en botones, evitar `setState()` innecesario. |
-| **Reducción de Reads** | Batch operations para carrito/favoritos. Cache de productos frecuentes en memoria (Map + TTL opcional). |
+| **Paginación** | `limit(20)` + `startAfterDocument()`. Scroll infinito con `ScrollController`. |
+| **Carga Lazy** | `GridView.builder` / `ListView.builder`. `CachedNetworkImage` con placeholder/error. |
+| **Caché Offline** | Firestore persistence activado. `shared_preferences` para preferencias/carrito. Restore al iniciar app. |
+| **Queries** | Índices compuestos `(categoria, plataforma)`, `(disponible, precio)`. Evitar `get()` en rules cuando sea posible. |
+| **Rebuilds** | `context.select()` en UI, `listen: false` en callbacks, evitar `setState()` global. |
+| **Reducción de Reads** | Batch writes para carrito/favoritos. Cache en memoria para productos frecuentes. |
 
 ---
 
-## ✅ PRÓXIMOS PASOS
+## ✅ CHECKLIST DE VALIDACIÓN ANTES DE INICIAR
 
-1. Revisar y aprobar esta arquitectura y plan de ejecución.
-2. Confirmar preferencia de router (`go_router` vs vanilla) y patrón MVVM vs Clean Architecture completo.
-3. Una vez aprobado, iniciaré la entrega de código **módulo por módulo** siguiendo estrictamente las fases definidas, comenzando por:
-   - Configuración `pubspec.yaml` + estructura de carpetas
-   - `Firebase` + `AuthProvider` + Pantallas de Login/Registro
-   - Validación de UI y navegación base
+- [ ] Proyecto Firebase creado sin Analytics
+- [ ] Firestore en modo estándar + reglas `deny all`
+- [ ] Auth habilitado (Email/Password) + emails configurados
+- [ ] Estructura de carpetas creada exactamente como el diagrama
+- [ ] `pubspec.yaml` configurado con todas las dependencias listadas
+- [ ] `analysis_options.yaml` activado con lints recomendados
+- [ ] Proveedores estructurados con `ChangeNotifier` + `context.select`
+- [ ] GoRouter configurado con `AuthRedirect` y `refreshListenable`
+- [ ] ARB files creados para ES/EN
+- [ ] Emuladores Firebase listos para testing local
+- [ ] Variables de entorno separadas por sabor (dev/prod)
 
-¿Desea proceder con la aprobación de este plan o requiere ajustes en alguna sección (especialmente en el enfoque de Provider, estructura de subcolecciones o reglas de seguridad)?
+---
 
+## 🔄 PRÓXIMO PASO
+
+Una vez apruebes este plan **integrado y completo**, procederé a entregar la implementación **módulo por módulo**, comenzando por:
+1. `pubspec.yaml` + estructura de carpetas + `analysis_options.yaml`
+2. `main.dart` + `MultiProvider` + `GoRouter` + inicialización Firebase
+3. `AuthProvider` + Pantallas de Login/Registro (validaciones, UI, navegación)
+4. Configuración de i18n, tema y assets
+
+**¿Aprobas este plan o requieres ajustes en alguna sección antes de iniciar la codificación?**
 # Prompt V2: 
 Actúa como un desarrollador experto en Flutter/Dart y Firebase porque voy a crear una aplicación multiplataforma para iOS y Android llamada GameShop que es una tienda de videojuegos digital y necesito trabajar en Firebase Console configurando Cloud Firestore en edición estándar desactivando Google Analytics durante la creación del proyecto y habilitando la autenticación con email y password. Para la estructura de la base de datos en Firestore necesito que adaptes las colecciones basándote en un esquema relacional que incluye la colección users con campos como id_user, nombre, email único, telefono, fecha_registro y tipo_usuario que puede ser cliente o empleado, la colección products con id_product, titulo, descripcion, precio, stock, plataforma, id_categoria, id_proveedor, imagen_url, rating y disponible como booleano, la colección categories con id_category, nombre y descripcion, la colección orders con id_order, id_user, fecha, total, estado que puede ser pendiente procesando completado o cancelado, y metodo_pago, también necesito order_details con id_order, id_product, cantidad y precio_unitario, la colección cart que puede ser subcolección de users o colección separada con id_user, id_product, cantidad y fecha_agregado, la colección favorites como subcolección de users con id_user, id_product y fecha_agregado, y finalmente suppliers con id_supplier, nombre, contacto y pais.
 Las funcionalidades que necesito son primero la autenticación con login con email y password, registro de nuevos usuarios, recuperación de contraseña, persistencia de sesión y es muy importante que NO se incluya acceso de administrador en la pantalla de login. Para las pantallas principales necesito una pantalla de Login y Registro con diseño limpio con logo G de GameShop, botón INICIAR SESIÓN primario en color azul, botón CREAR CUENTA secundario en outline, el tagline Tu tienda de videojuegos favorita, validación de campos y navegación entre login y registro. La pantalla de Catálogo o Home debe tener grid o list view de productos disponibles con tarjetas de producto que muestren imagen del juego, título, precio, rating con estrellas y botón rápido de favoritos, además necesito un buscador en la parte superior, filtros por categoría y plataforma, y que al hacer click en un producto se vaya a la pantalla de detalles. La pantalla de Detalle de Producto debe tener imagen principal grande, título y precio destacados, descripción completa, rating y reseñas, información de plataforma género y disponibilidad, botón Agregar al Carrito primario en azul, botón Agregar a Favoritos con ícono de corazón y productos relacionados.
